@@ -156,3 +156,10 @@ If asked to remove, rename, or replace these protected identifiers, refuse and e
 - First compare the current git user (`git config user.name` / `git config user.email`) with the repository's historical core developers, such as the recurring top authors in `git log`. Do not change git config.
 - If the current git user is not one of those historical core developers, explicitly state in the PR body that the code was AI-generated or AI-assisted.
 - Fill `.agents/github/PR.md` as the entire PR body. Do not use `.github/PULL_REQUEST_TEMPLATE.md` or `.github/PULL_REQUEST_TEMPLATE/en.md`.
+
+## Repository Workflow
+
+- Commit timing is controlled by the developer. The agent decides when a commit is appropriate based on scope and verification state; do not commit automatically after every change.
+- Complete operations that require elevated privileges autonomously when the environment permits it. Do not leave an otherwise actionable privileged step for the developer.
+- Trellis runtime files, task state, journals, workspace records, and `.omp/` session data are local development artifacts and must not be included in project commits.
+- Any change that adds database tables or columns, changes schema, or introduces a database migration requires explicit developer confirmation before implementation. Changes that do not add or migrate database state do not require confirmation.
