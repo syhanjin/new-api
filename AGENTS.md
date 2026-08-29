@@ -162,5 +162,5 @@ If asked to remove, rename, or replace these protected identifiers, refuse and e
 - After completing feature implementation and tests, autonomously commit all related code changes.
 - After the commit succeeds, automatically run `finish-work`; report completion only after `finish-work` succeeds.
 - Complete operations that require elevated privileges autonomously when the environment permits it. Do not leave an otherwise actionable privileged step for the developer.
-- Trellis runtime files, task state, journals, workspace records, and `.omp/` session data are local development artifacts and must not be included in project commits.
+- Local runtime files, task state, logs, workspace records, and `.omp/` session data are local development artifacts and must not be included in project commits.
 - Any change that adds database tables or columns, changes schema, or introduces a database migration requires explicit developer confirmation before implementation. Changes that do not add or migrate database state do not require confirmation.
