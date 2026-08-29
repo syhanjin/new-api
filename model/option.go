@@ -31,7 +31,6 @@ func AllOption() ([]*Option, error) {
 
 func InitOptionMap() {
 	common.OptionMapRWMutex.Lock()
-	defer common.OptionMapRWMutex.Unlock()
 	common.OptionMap = make(map[string]string)
 	// 添加原有的系统配置
 	common.OptionMap["FileUploadPermission"] = strconv.Itoa(common.FileUploadPermission)
