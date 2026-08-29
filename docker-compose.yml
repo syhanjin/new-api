@@ -15,10 +15,9 @@ version: '3.4' # For compatibility with older Docker versions
 
 services:
   new-api:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: new-api:local
+# Production uses the latest image published to GHCR. Override for a pinned or local image:
+#   NEW_API_IMAGE=ghcr.io/<owner>/<repo>:sha-<commit> docker compose up -d
+    image: ${NEW_API_IMAGE:-ghcr.io/syhanjin/new-api:latest}
     container_name: new-api
     restart: always
     command: --log-dir /app/logs
