@@ -39,6 +39,7 @@ export interface RegisterPayload {
   email?: string
   verification_code?: string
   aff_code?: string
+  invitation_code?: string
   turnstile?: string
 }
 
@@ -130,10 +131,9 @@ export interface SystemStatus {
     demo_site_enabled?: boolean
     user_agreement_enabled?: boolean
     privacy_policy_enabled?: boolean
+    invitation_register_enabled?: boolean
     oauth_register_enabled?: boolean
     register_enabled?: boolean
-    password_login_enabled?: boolean
-    password_register_enabled?: boolean
     custom_oauth_providers?: CustomOAuthProviderInfo[]
     [key: string]: unknown
   }
@@ -175,6 +175,7 @@ export interface SystemStatus {
   demo_site_enabled?: boolean
   user_agreement_enabled?: boolean
   privacy_policy_enabled?: boolean
+  invitation_register_enabled?: boolean
   oauth_register_enabled?: boolean
   register_enabled?: boolean
   password_login_enabled?: boolean
@@ -182,7 +183,6 @@ export interface SystemStatus {
   custom_oauth_providers?: CustomOAuthProviderInfo[]
   [key: string]: unknown
 }
-
 // ============================================================================
 // OAuth
 // ============================================================================
@@ -204,7 +204,6 @@ export interface CustomOAuthProviderInfo {
   authorization_endpoint: string
   scopes: string
 }
-
 // ============================================================================
 // Form Props
 // ============================================================================

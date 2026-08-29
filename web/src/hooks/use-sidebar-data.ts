@@ -31,7 +31,7 @@ import {
   ServerCog,
   Settings,
   Ticket,
-  User,
+  UserRound,
   Users,
   Wallet,
 } from 'lucide-react'
@@ -112,7 +112,7 @@ export function useSidebarData(): SidebarData {
           {
             title: t('Profile'),
             url: '/profile',
-            icon: User,
+            icon: UserRound,
           },
         ],
       },
@@ -139,6 +139,11 @@ export function useSidebarData(): SidebarData {
             title: t('Redemption Codes'),
             url: '/redemption-codes',
             icon: Ticket,
+          },
+          {
+            title: t('Invitation Codes'),
+            url: '/invitations',
+            icon: UserRound,
           },
           {
             title: t('Subscriptions'),

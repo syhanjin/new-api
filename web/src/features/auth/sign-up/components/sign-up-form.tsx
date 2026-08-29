@@ -94,6 +94,7 @@ export function SignUpForm({
       email: '',
       password: '',
       confirmPassword: '',
+      invitation_code: '',
     },
   })
 
@@ -107,6 +108,11 @@ export function SignUpForm({
     status?.data?.oauth_register_enabled ??
     true
   const hasWeChatLogin = Boolean(status?.wechat_login)
+  const invitationRegisterEnabled = Boolean(
+    status?.invitation_register_enabled ??
+      status?.data?.invitation_register_enabled
+  )
+  const invitationCode = form.watch('invitation_code')
   const turnstileReady = !isTurnstileEnabled || Boolean(turnstileToken)
 
   const wechatQrCodeUrl = useMemo(() => {
@@ -139,6 +145,10 @@ export function SignUpForm({
   }, [])
 
   async function onSubmit(data: z.infer<typeof registerFormSchema>) {
+    if (invitationRegisterEnabled && !data.invitation_code?.trim()) {
+      toast.error(t('Invitation Code'))
+      return
+    }
     if (requiresLegalConsent && !agreedToLegal) {
       toast.error(legalConsentErrorMessage)
       return
@@ -166,6 +176,7 @@ export function SignUpForm({
         email: data.email || undefined,
         verification_code: verificationCode || undefined,
         aff_code: getAffiliateCode(),
+        invitation_code: data.invitation_code?.trim() || undefined,
         turnstile: turnstileToken,
       })
 
@@ -214,7 +225,10 @@ export function SignUpForm({
 
     setIsWeChatSubmitting(true)
     try {
-      const res = await wechatLoginByCode(wechatCode)
+      const res = await wechatLoginByCode(
+        wechatCode,
+        invitationCode?.trim() || undefined
+      )
       if (res?.success && isAuthBundle(res.data)) {
         await handleLoginSuccess(res.data)
         toast.success(t('Signed in via WeChat'))
@@ -295,57 +309,48 @@ export function SignUpForm({
           )}
         />
 
-        {/* Email Verification Section */}
+        {/* Invitation Code */}
+        {invitationRegisterEnabled && (
+          <FormField
+            control={form.control}
+            name='invitation_code'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('Invitation Code')}</FormLabel>
+                <FormControl>
+                  <Input placeholder={t('Invitation Code')} autoComplete='off' {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+
         {emailVerificationRequired && (
           <>
-            {/* Email Field */}
             <FormField
               control={form.control}
               name='email'
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>
-                    {t('Email (required for verification)')}
-                  </FormLabel>
+                  <FormLabel>{t('Email (required for verification)')}</FormLabel>
                   <FormControl>
-                    <Input
-                      placeholder={t('name@example.com')}
-                      type='email'
-                      {...field}
-                    />
+                    <Input placeholder={t('name@example.com')} type='email' {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-
-            {/* Verification Code Field */}
             <div className='flex items-end gap-2'>
               <div className='flex-1'>
-                <Input
-                  placeholder={t('Verification code')}
-                  value={verificationCode}
-                  onChange={(e) => setVerificationCode(e.target.value)}
-                />
+                <Input placeholder={t('Verification code')} value={verificationCode} onChange={(e) => setVerificationCode(e.target.value)} />
               </div>
-              <Button
-                variant='outline'
-                type='button'
-                disabled={
-                  isLoading ||
-                  isSendingCode ||
-                  isActive ||
-                  !emailValue ||
-                  !turnstileReady
-                }
-                onClick={handleSendVerificationCode}
-              >
+              <Button variant='outline' type='button' disabled={isLoading || isSendingCode || isActive || !emailValue || !turnstileReady} onClick={handleSendVerificationCode}>
                 {verificationCodeAction}
               </Button>
             </div>
           </>
         )}
-
         {/* Turnstile */}
         {isTurnstileEnabled && (
           <div className='mt-2'>
@@ -377,10 +382,10 @@ export function SignUpForm({
           {isLoading ? <Loader2 className='h-4 w-4 animate-spin' /> : null}
           {t('Create account')}
         </Button>
-
         {oauthRegisterEnabled && (
           <OAuthProviders
             status={status}
+            invitationCode={invitationCode}
             disabled={isLoading || (requiresLegalConsent && !agreedToLegal)}
             onWeChatLogin={hasWeChatLogin ? handleOpenWeChatDialog : undefined}
             isWeChatLoading={isWeChatSubmitting}

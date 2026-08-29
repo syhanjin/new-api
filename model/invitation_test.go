@@ -1,0 +1,110 @@
+package model
+
+import (
+	"fmt"
+	"strings"
+	"testing"
+
+	"github.com/QuantumNous/new-api/common"
+	"github.com/glebarez/sqlite"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
+)
+
+func setupInvitationTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	previousDB, previousLogDB := DB, LOG_DB
+	previousMain, previousLog := common.MainDatabaseType(), common.LogDatabaseType()
+	common.SetDatabaseTypes(common.DatabaseTypeSQLite, common.DatabaseTypeSQLite)
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "_"))
+	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	require.NoError(t, err)
+	DB, LOG_DB = db, db
+	require.NoError(t, db.AutoMigrate(&InvitationBatch{}, &InvitationCode{}, &InvitationUse{}))
+	t.Cleanup(func() {
+		DB, LOG_DB = previousDB, previousLogDB
+		common.SetDatabaseTypes(previousMain, previousLog)
+		sqlDB, err := db.DB()
+		if err == nil {
+			_ = sqlDB.Close()
+		}
+	})
+	return db
+}
+
+func TestInvitationAutoMigrateIsIdempotent(t *testing.T) {
+	db := setupInvitationTestDB(t)
+	require.NoError(t, db.AutoMigrate(&InvitationBatch{}, &InvitationCode{}, &InvitationUse{}))
+	assert.True(t, db.Migrator().HasTable(&InvitationBatch{}))
+	assert.True(t, db.Migrator().HasTable(&InvitationCode{}))
+	assert.True(t, db.Migrator().HasTable(&InvitationUse{}))
+	assert.True(t, db.Migrator().HasIndex(&InvitationCode{}, "idx_invitation_codes_code"))
+	assert.True(t, db.Migrator().HasIndex(&InvitationUse{}, "uk_invitation_code_user"))
+}
+
+func TestInvitationConsumeEnforcesUseAndUserLimits(t *testing.T) {
+	db := setupInvitationTestDB(t)
+	batch, codes, err := CreateInvitationBatch("test", 7, 1, 2, 0)
+	require.NoError(t, err)
+	require.Len(t, codes, 1)
+	assert.Equal(t, 1, batch.CreatedCount)
+	require.NoError(t, ConsumeInvitationCode(codes[0], 101))
+	require.NoError(t, ConsumeInvitationCode(codes[0], 102))
+	assert.ErrorIs(t, ConsumeInvitationCode(codes[0], 101), ErrInvitationCodeExhausted)
+	var code InvitationCode
+	require.NoError(t, db.First(&code, "code = ?", codes[0]).Error)
+	assert.Equal(t, 2, code.UsedCount)
+	var uses []InvitationUse
+	require.NoError(t, db.Where("invitation_code_id = ?", code.Id).Find(&uses).Error)
+	assert.Len(t, uses, 2)
+}
+
+func TestInvitationConsumeRejectsInvalidStatesAndDuplicateUser(t *testing.T) {
+	db := setupInvitationTestDB(t)
+	_, codes, err := CreateInvitationBatch("test", 7, 1, 2, 0)
+	require.NoError(t, err)
+	assert.ErrorIs(t, ConsumeInvitationCode("", 1), ErrInvitationCodeEmpty)
+	assert.ErrorIs(t, ConsumeInvitationCode("missing", 1), ErrInvitationCodeNotFound)
+	require.NoError(t, ConsumeInvitationCode(codes[0], 1))
+	assert.ErrorIs(t, ConsumeInvitationCode(codes[0], 1), ErrInvitationCodeReused)
+	require.NoError(t, ConsumeInvitationCode(codes[0], 2))
+
+	require.NoError(t, db.Create(&InvitationCode{Code: "disabled", Status: InvitationStatusDisabled, MaxUses: 1}).Error)
+	assert.ErrorIs(t, ConsumeInvitationCode("disabled", 2), ErrInvitationCodeDisabled)
+	require.NoError(t, db.Create(&InvitationCode{Code: "expired", Status: InvitationStatusEnabled, MaxUses: 1, ExpiredTime: common.GetTimestamp() - 1}).Error)
+	assert.ErrorIs(t, ConsumeInvitationCode("expired", 2), ErrInvitationCodeExpired)
+}
+
+func TestInvitationConsumeRollsBackWithCallerTransaction(t *testing.T) {
+	db := setupInvitationTestDB(t)
+	_, codes, err := CreateInvitationBatch("test", 7, 1, 1, 0)
+	require.NoError(t, err)
+	rollbackErr := db.Transaction(func(tx *gorm.DB) error {
+		if err := ConsumeInvitationCodeWithTx(tx, codes[0], 99); err != nil {
+			return err
+		}
+		return fmt.Errorf("force rollback")
+	})
+	require.Error(t, rollbackErr)
+	var code InvitationCode
+	require.NoError(t, db.First(&code, "code = ?", codes[0]).Error)
+	assert.Equal(t, 0, code.UsedCount)
+	var count int64
+	require.NoError(t, db.Model(&InvitationUse{}).Where("user_id = ?", 99).Count(&count).Error)
+	assert.Zero(t, count)
+}
+
+func TestCreateInvitationBatchRejectsInvalidParameters(t *testing.T) {
+	setupInvitationTestDB(t)
+	for _, tc := range []struct {
+		name           string
+		count, maxUses int
+		expired        int64
+	}{
+		{"zero count", 0, 1, 0}, {"zero uses", 1, 0, 0}, {"expired", 1, 1, common.GetTimestamp() - 1},
+	} {
+		_, _, err := CreateInvitationBatch(tc.name, 1, tc.count, tc.maxUses, tc.expired)
+		assert.Error(t, err, tc.name)
+	}
+}
