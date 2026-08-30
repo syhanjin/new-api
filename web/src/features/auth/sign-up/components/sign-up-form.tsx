@@ -19,8 +19,8 @@ For commercial licensing, please contact support@quantumnous.com
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2 } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import type { z } from 'zod'
 
@@ -53,6 +53,18 @@ import { useStatus } from '@/hooks/use-status'
 import { isAuthBundle } from '@/lib/api'
 import { getServerErrorMessageKey } from '@/lib/server-error-message'
 import { cn } from '@/lib/utils'
+
+function getInvitationErrorMessage(value: unknown): string | null {
+  if (typeof value === 'string' && value.startsWith('invitation code ')) return value
+  if (!value || typeof value !== 'object' || !('response' in value)) return null
+  const response = value.response
+  if (!response || typeof response !== 'object' || !('data' in response)) return null
+  const data = response.data
+  if (!data || typeof data !== 'object' || !('message' in data)) return null
+  return typeof data.message === 'string' && data.message.startsWith('invitation code ')
+    ? data.message
+    : null
+}
 
 export function SignUpForm({
   className,
@@ -97,6 +109,13 @@ export function SignUpForm({
       invitation_code: '',
     },
   })
+
+  useEffect(() => {
+    const invitationCode = new URLSearchParams(window.location.search).get('invitation_code')?.trim()
+    if (invitationCode && invitationCode.length <= 128) {
+      form.setValue('invitation_code', invitationCode)
+    }
+  }, [form])
 
   const emailValue = form.watch('email')
   const emailVerificationRequired = !!status?.email_verification
@@ -146,7 +165,8 @@ export function SignUpForm({
 
   async function onSubmit(data: z.infer<typeof registerFormSchema>) {
     if (invitationRegisterEnabled && !data.invitation_code?.trim()) {
-      toast.error(t('Invitation Code'))
+      form.setError('invitation_code', { type: 'required', message: t('Invitation code is required') })
+      form.setFocus('invitation_code')
       return
     }
     if (requiresLegalConsent && !agreedToLegal) {
@@ -183,11 +203,17 @@ export function SignUpForm({
       if (res?.success) {
         toast.success(t('Account created! Please sign in'))
         redirectToLogin()
+      } else if (getInvitationErrorMessage(res?.message)) {
+        form.setError('invitation_code', { type: 'server', message: t('Invalid invitation code') })
+        form.setFocus('invitation_code')
       } else {
         toast.error(res?.message || t('Failed to create account'))
       }
-    } catch {
-      // Errors are handled by global interceptor
+    } catch (error: unknown) {
+      if (getInvitationErrorMessage(error)) {
+        form.setError('invitation_code', { type: 'server', message: t('Invalid invitation code') })
+        form.setFocus('invitation_code')
+      }
     } finally {
       setIsLoading(false)
     }
@@ -201,6 +227,11 @@ export function SignUpForm({
   }
 
   const handleOpenWeChatDialog = () => {
+    if (invitationRegisterEnabled && !invitationCode?.trim()) {
+      form.setError('invitation_code', { type: 'required', message: t('Invitation code is required') })
+      form.setFocus('invitation_code')
+      return
+    }
     if (requiresLegalConsent && !agreedToLegal) {
       toast.error(legalConsentErrorMessage)
       return
@@ -309,22 +340,22 @@ export function SignUpForm({
           )}
         />
 
-        {/* Invitation Code */}
-        {invitationRegisterEnabled && (
-          <FormField
-            control={form.control}
-            name='invitation_code'
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t('Invitation Code')}</FormLabel>
-                <FormControl>
-                  <Input placeholder={t('Invitation Code')} autoComplete='off' {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        )}
+        <FormField
+          control={form.control}
+          name='invitation_code'
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>
+                {t('Invitation Code')}
+                {invitationRegisterEnabled ? ` (${t('Required')})` : ` (${t('Optional')})`}
+              </FormLabel>
+              <FormControl>
+                <Input maxLength={128} placeholder={t('Invitation Code')} autoComplete='off' {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         {emailVerificationRequired && (
           <>
@@ -386,7 +417,11 @@ export function SignUpForm({
           <OAuthProviders
             status={status}
             invitationCode={invitationCode}
-            disabled={isLoading || (requiresLegalConsent && !agreedToLegal)}
+            disabled={
+              isLoading ||
+              (requiresLegalConsent && !agreedToLegal) ||
+              (invitationRegisterEnabled && !invitationCode?.trim())
+            }
             onWeChatLogin={hasWeChatLogin ? handleOpenWeChatDialog : undefined}
             isWeChatLoading={isWeChatSubmitting}
             className='pt-2'
