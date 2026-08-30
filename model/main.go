@@ -338,12 +338,20 @@ func migrateInvitationCodesToStandalone() error {
 			if err != nil {
 				return fmt.Errorf("migrate invitation codes: rebuild SQLite table: %w", err)
 			}
+		} else if common.UsingMainDatabase(common.DatabaseTypePostgreSQL) {
+			if err := DB.Exec("ALTER TABLE invitation_codes DROP COLUMN IF EXISTS batch_id").Error; err != nil {
+				return fmt.Errorf("migrate invitation codes: drop legacy batch column: %w", err)
+			}
 		} else if err := DB.Migrator().DropColumn(invitationTable, "batch_id"); err != nil {
 			return fmt.Errorf("migrate invitation codes: drop legacy batch column: %w", err)
 		}
 	}
 	if hasBatches {
-		if err := DB.Migrator().DropTable(batchTable); err != nil {
+		if common.UsingMainDatabase(common.DatabaseTypePostgreSQL) {
+			if err := DB.Exec("DROP TABLE IF EXISTS invitation_batches").Error; err != nil {
+				return fmt.Errorf("migrate invitation codes: drop legacy batch table: %w", err)
+			}
+		} else if err := DB.Migrator().DropTable(batchTable); err != nil {
 			return fmt.Errorf("migrate invitation codes: drop legacy batch table: %w", err)
 		}
 	}

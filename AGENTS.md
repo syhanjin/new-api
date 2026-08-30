@@ -169,5 +169,7 @@ If asked to remove, rename, or replace these protected identifiers, refuse and e
 
 - Feature plans MUST list the corresponding automated, API, and UI test cases before implementation.
 - After implementing a feature, MUST build and run an isolated development test environment based on the repository's development setup before declaring completion.
+- Before reporting feature completion or committing implementation changes, MUST run and pass the production-shaped development environment with `docker compose` and verify changed behavior from running services. Unit tests and local builds alone are insufficient.
+- If compilation or image building is blocked by dependency network access, MAY use an alternative package or container mirror during development, provided the final behavior is still tested in the Docker Compose environment and the verification records the mirror used.
 - Admin and user-facing flows MUST be exercised against the same running development backend and database so their contracts are verified end to end; mocks alone are insufficient for completion evidence.
 - Every verification result MUST identify passed, failed, and untestable cases. Any untestable behavior MUST state the exact missing prerequisite, such as external credentials, callback access, or unavailable infrastructure.
