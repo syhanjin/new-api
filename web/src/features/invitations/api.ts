@@ -1,5 +1,5 @@
 import { api } from '@/lib/api'
-import type { ApiResponse, InvitationBatch, InvitationBatchListResponse, InvitationBatchResponse, InvitationFormData, InvitationListResponse, InvitationSearchParams, InvitationCode } from './types'
+import type { ApiResponse, InvitationBatchListResponse, InvitationBatchResponse, InvitationCreateResult, InvitationFormData, InvitationListResponse, InvitationSearchParams, InvitationCode } from './types'
 
 function invitationQuery(params: InvitationSearchParams = {}) {
   const query = new URLSearchParams()
@@ -12,7 +12,7 @@ function invitationQuery(params: InvitationSearchParams = {}) {
 export async function getInvitations(params: InvitationSearchParams = {}): Promise<InvitationListResponse> { return (await api.get(`/api/invitation/?${invitationQuery(params)}`)).data }
 export async function searchInvitations(params: InvitationSearchParams): Promise<InvitationListResponse> { return (await api.get(`/api/invitation/search?${invitationQuery(params)}`)).data }
 export async function getInvitation(id: number): Promise<ApiResponse<InvitationCode>> { return (await api.get(`/api/invitation/${id}`)).data }
-export async function createInvitations(data: InvitationFormData): Promise<ApiResponse<{ batch: InvitationBatch; codes: string[] }>> { return (await api.post('/api/invitation/', data)).data }
+export async function createInvitations(data: InvitationFormData): Promise<ApiResponse<InvitationCreateResult>> { return (await api.post('/api/invitation/', data)).data }
 export async function updateInvitation(data: InvitationFormData & { id: number }): Promise<ApiResponse<InvitationCode>> { return (await api.put('/api/invitation/', data)).data }
 export async function updateInvitationStatus(id: number, status: number): Promise<ApiResponse<InvitationCode>> { return (await api.put('/api/invitation/?status_only=true', { id, status })).data }
 export async function deleteInvitation(id: number): Promise<ApiResponse> { return (await api.delete(`/api/invitation/${id}/`)).data }

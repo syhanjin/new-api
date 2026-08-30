@@ -14,12 +14,13 @@ import (
 const invitationBatchCountMax = 100
 
 type invitationBatchRequest struct {
-	ID          int    `json:"id"`
-	Name        string `json:"name"`
-	Count       int    `json:"count"`
-	MaxUses     int    `json:"max_uses"`
-	ExpiredTime int64  `json:"expired_time"`
-	Status      int    `json:"status"`
+	ID          int      `json:"id"`
+	Name        string   `json:"name"`
+	Count       int      `json:"count"`
+	MaxUses     int      `json:"max_uses"`
+	ExpiredTime int64    `json:"expired_time"`
+	Status      int      `json:"status"`
+	Codes       []string `json:"codes"`
 }
 
 func GetAllInvitationBatches(c *gin.Context) {
@@ -140,16 +141,26 @@ func CreateInvitations(c *gin.Context) {
 		common.ApiError(c, errors.New("invitation batch name must be between 1 and 20 characters"))
 		return
 	}
-	if req.Count <= 0 || req.Count > invitationBatchCountMax {
-		common.ApiError(c, errors.New("invitation count must be between 1 and 100"))
-		return
-	}
 	if req.MaxUses <= 0 {
 		common.ApiError(c, errors.New("invitation max uses must be positive"))
 		return
 	}
 	if req.ExpiredTime != 0 && req.ExpiredTime < common.GetTimestamp() {
 		common.ApiError(c, errors.New("invitation expiration time is invalid"))
+		return
+	}
+	if len(req.Codes) > 0 {
+		batch, codes, skipped, err := model.ImportInvitationBatch(req.Name, c.GetInt("id"), req.MaxUses, req.ExpiredTime, req.Codes)
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		recordManageAudit(c, "invitation.create", map[string]interface{}{"batch_id": batch.Id, "imported_count": len(codes), "skipped_count": len(skipped)})
+		common.ApiSuccess(c, gin.H{"batch": batch, "codes": codes, "imported_count": len(codes), "skipped_count": len(skipped), "skipped": skipped})
+		return
+	}
+	if req.Count <= 0 || req.Count > invitationBatchCountMax {
+		common.ApiError(c, errors.New("invitation count must be between 1 and 100"))
 		return
 	}
 	batch, codes, err := model.CreateInvitationBatch(req.Name, c.GetInt("id"), req.Count, req.MaxUses, req.ExpiredTime)

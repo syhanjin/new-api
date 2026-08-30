@@ -12,8 +12,8 @@ type InvitationsContext = {
   view: InvitationView
   openBatch: (batch: InvitationBatch) => void
   showBatches: () => void
-  result: { batchName: string; codes: string[] } | null
-  setResult: React.Dispatch<React.SetStateAction<{ batchName: string; codes: string[] } | null>>
+  result: { batchName: string; codes: string[]; importedCount?: number; skippedCount?: number; skipped?: { line: number; code: string; reason: string }[] } | null
+  setResult: React.Dispatch<React.SetStateAction<{ batchName: string; codes: string[]; importedCount?: number; skippedCount?: number; skipped?: { line: number; code: string; reason: string }[] } | null>>
   refreshTrigger: number
   triggerRefresh: () => void
 }
@@ -23,7 +23,7 @@ export function InvitationsProvider({ children }: { children: React.ReactNode })
   const [currentRow, setCurrentRow] = useState<InvitationCode | null>(null)
   const [currentBatch, setCurrentBatch] = useState<InvitationBatch | null>(null)
   const [view, setView] = useState<InvitationView>('batches')
-  const [result, setResult] = useState<{ batchName: string; codes: string[] } | null>(null)
+  const [result, setResult] = useState<{ batchName: string; codes: string[]; importedCount?: number; skippedCount?: number; skipped?: { line: number; code: string; reason: string }[] } | null>(null)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   const openBatch = (batch: InvitationBatch) => { setCurrentBatch(batch); setView('codes') }
   const showBatches = () => { setCurrentBatch(null); setView('batches') }

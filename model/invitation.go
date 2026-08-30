@@ -3,7 +3,9 @@ package model
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/QuantumNous/new-api/common"
 	"gorm.io/gorm"
@@ -24,7 +26,14 @@ var (
 	ErrInvitationCodeExhausted  = errors.New("invitation code exhausted")
 	ErrInvitationCodeReused     = errors.New("invitation code already used by this user")
 	ErrInvitationCodeGeneration = errors.New("failed to generate invitation code")
+	ErrInvitationImportEmpty    = errors.New("invitation import has no valid codes")
 )
+
+type InvitationImportSkipped struct {
+	Line   int    `json:"line"`
+	Code   string `json:"code"`
+	Reason string `json:"reason"`
+}
 
 type InvitationBatch struct {
 	Id           int            `json:"id"`
@@ -177,6 +186,77 @@ func CreateInvitationBatch(name string, createdBy, count, maxUses int, expiredTi
 		return nil
 	})
 	return &batch, codes, err
+}
+
+// ImportInvitationBatch creates one batch from caller-provided codes.
+func ImportInvitationBatch(name string, createdBy, maxUses int, expiredTime int64, codes []string) (*InvitationBatch, []string, []InvitationImportSkipped, error) {
+	if maxUses <= 0 || (expiredTime != 0 && expiredTime < common.GetTimestamp()) {
+		return nil, nil, nil, errors.New("invalid invitation batch parameters")
+	}
+	valid := make([]string, 0, len(codes))
+	skipped := make([]InvitationImportSkipped, 0)
+	seen := make(map[string]struct{}, len(codes))
+	for line, raw := range codes {
+		code := strings.TrimSpace(raw)
+		if line >= 100 {
+			if code != "" {
+				skipped = append(skipped, InvitationImportSkipped{Line: line + 1, Code: code, Reason: "maximum 100 input lines exceeded"})
+			}
+			continue
+		}
+		if code == "" {
+			skipped = append(skipped, InvitationImportSkipped{Line: line + 1, Reason: "empty code"})
+			continue
+		}
+		if utf8.RuneCountInString(code) > 32 {
+			skipped = append(skipped, InvitationImportSkipped{Line: line + 1, Code: code, Reason: "code exceeds 32 characters"})
+			continue
+		}
+		if _, exists := seen[code]; exists {
+			skipped = append(skipped, InvitationImportSkipped{Line: line + 1, Code: code, Reason: "duplicate code in import"})
+			continue
+		}
+		seen[code] = struct{}{}
+		valid = append(valid, code)
+	}
+	if len(valid) == 0 {
+		return nil, nil, skipped, ErrInvitationImportEmpty
+	}
+	var batch InvitationBatch
+	createdCodes := make([]string, 0, len(valid))
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		now := common.GetTimestamp()
+		batch = InvitationBatch{Name: name, CreatedBy: createdBy, CreatedTime: now, ExpiredTime: expiredTime, MaxUses: maxUses, Status: InvitationStatusEnabled}
+		if err := tx.Create(&batch).Error; err != nil {
+			return err
+		}
+		for _, code := range valid {
+			created := InvitationCode{BatchId: batch.Id, Code: code, Status: InvitationStatusEnabled, CreatedTime: now, ExpiredTime: expiredTime, MaxUses: maxUses}
+			if err := tx.Create(&created).Error; err != nil {
+				if isUniqueConstraintError(err) {
+					for line, raw := range codes {
+						if line < 100 && strings.TrimSpace(raw) == code {
+							skipped = append(skipped, InvitationImportSkipped{Line: line + 1, Code: code, Reason: "code already exists"})
+							break
+						}
+					}
+					continue
+				}
+				return err
+			}
+			createdCodes = append(createdCodes, code)
+		}
+		if len(createdCodes) == 0 {
+			return ErrInvitationImportEmpty
+		}
+		batch.CreatedCount = len(createdCodes)
+		return tx.Model(&batch).Update("created_count", batch.CreatedCount).Error
+	})
+	if err != nil {
+		return nil, nil, skipped, err
+	}
+	sort.SliceStable(skipped, func(i, j int) bool { return skipped[i].Line < skipped[j].Line })
+	return &batch, createdCodes, skipped, nil
 }
 
 func isUniqueConstraintError(err error) bool {

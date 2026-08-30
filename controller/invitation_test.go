@@ -94,3 +94,14 @@ func TestRegisterWithInvalidInvitationDoesNotCreateUser(t *testing.T) {
 	require.NoError(t, model.DB.Model(&model.User{}).Where("username = ?", "invalid-invite").Count(&count).Error)
 	assert.Zero(t, count)
 }
+
+func TestCreateInvitationsImportsCustomCodes(t *testing.T) {
+	db := setupInvitationControllerTestDB(t)
+	recorder := invitationControllerRequest(t, http.MethodPost, "/api/invitation", `{"name":"import","max_uses":1,"codes":[" Alpha ","","Alpha"]}`, CreateInvitations)
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	assert.Contains(t, recorder.Body.String(), `"imported_count":1`)
+	assert.Contains(t, recorder.Body.String(), `"skipped_count":2`)
+	var count int64
+	require.NoError(t, db.Model(&model.InvitationCode{}).Where("code = ?", "Alpha").Count(&count).Error)
+	assert.EqualValues(t, 1, count)
+}

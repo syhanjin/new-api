@@ -129,3 +129,30 @@ func TestDeleteInvitationBatchCascadesCodes(t *testing.T) {
 	assert.Zero(t, count)
 	assert.ErrorIs(t, db.First(&InvitationBatch{}, batch.Id).Error, gorm.ErrRecordNotFound)
 }
+
+func TestImportInvitationBatchSkipsInvalidAndDuplicateCodes(t *testing.T) {
+	db := setupInvitationTestDB(t)
+	_, existing, err := CreateInvitationBatch("existing", 1, 1, 1, 0)
+	require.NoError(t, err)
+	batch, codes, skipped, err := ImportInvitationBatch("import", 2, 3, 0, []string{" Alpha ", "", "Alpha", existing[0], strings.Repeat("x", 33)})
+	require.NoError(t, err)
+	require.NotNil(t, batch)
+	assert.Equal(t, []string{"Alpha"}, codes)
+	assert.Equal(t, 1, batch.CreatedCount)
+	require.Len(t, skipped, 4)
+	assert.Equal(t, []int{2, 3, 4, 5}, []int{skipped[0].Line, skipped[1].Line, skipped[2].Line, skipped[3].Line})
+	var stored []InvitationCode
+	require.NoError(t, db.Where("batch_id = ?", batch.Id).Find(&stored).Error)
+	require.Len(t, stored, 1)
+	assert.Equal(t, 3, stored[0].MaxUses)
+}
+
+func TestImportInvitationBatchRejectsEmptyInputWithoutCreatingBatch(t *testing.T) {
+	db := setupInvitationTestDB(t)
+	_, _, skipped, err := ImportInvitationBatch("empty", 1, 1, 0, []string{"", strings.Repeat("x", 33)})
+	assert.ErrorIs(t, err, ErrInvitationImportEmpty)
+	assert.Len(t, skipped, 2)
+	var count int64
+	require.NoError(t, db.Model(&InvitationBatch{}).Count(&count).Error)
+	assert.Zero(t, count)
+}
