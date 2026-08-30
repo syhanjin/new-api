@@ -13,7 +13,7 @@ export const invitationSchema = z.object({
 export type InvitationCode = z.infer<typeof invitationSchema>
 export interface ApiResponse<T = unknown> { success: boolean; message?: string; data?: T }
 export interface InvitationImportSkipped { line: number; code: string; reason: string }
-export interface InvitationCreateResult { codes: string[]; imported_count?: number; skipped_count?: number; skipped?: InvitationImportSkipped[] }
+export interface InvitationCreateResult { codes: string[]; imported_count?: number; deduplicated_count?: number; skipped_count?: number; skipped?: InvitationImportSkipped[] }
 export interface InvitationListResponse extends ApiResponse<{ items: InvitationCode[]; total: number; page: number; page_size: number }> {}
 export interface InvitationSearchParams { keyword?: string; status?: string; p?: number; page_size?: number }
 export interface InvitationFormData { id?: number; code?: string; count?: number; max_uses: number; expired_time: number; status?: number; codes?: string[] }

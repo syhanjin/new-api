@@ -37,7 +37,7 @@ export function InvitationsMutateDrawer({ open, onOpenChange, currentRow }: { op
         const result = await createInvitations(payload)
         if (!result.success) { toast.error(result.message || t(INVITATION_MESSAGES.CREATE_FAILED)); return }
         toast.success(t(INVITATION_MESSAGES.CREATED)); onOpenChange(false); triggerRefresh()
-        if (result.data) { setResult({ codes: result.data.codes, importedCount: result.data.imported_count, skippedCount: result.data.skipped_count, skipped: result.data.skipped }); setOpen('create-result') }
+        if (result.data) { setResult({ codes: result.data.codes, importedCount: result.data.imported_count, deduplicatedCount: result.data.deduplicated_count, skippedCount: result.data.skipped_count, skipped: result.data.skipped }); setOpen('create-result') }
         return
       }
       onOpenChange(false); triggerRefresh()

@@ -99,8 +99,21 @@ func TestCreateInvitationsImportsCustomCodes(t *testing.T) {
 	recorder := invitationControllerRequest(t, http.MethodPost, "/api/invitation", `{"max_uses":1,"codes":[" Alpha ","","Alpha"]}`, CreateInvitations)
 	assert.Equal(t, http.StatusOK, recorder.Code)
 	assert.Contains(t, recorder.Body.String(), `"imported_count":1`)
-	assert.Contains(t, recorder.Body.String(), `"skipped_count":2`)
+	assert.Contains(t, recorder.Body.String(), `"deduplicated_count":1`)
+	assert.Contains(t, recorder.Body.String(), `"skipped_count":1`)
 	var count int64
 	require.NoError(t, db.Model(&model.InvitationCode{}).Where("code = ?", "Alpha").Count(&count).Error)
 	assert.EqualValues(t, 1, count)
+}
+
+func TestCreateInvitationsAcceptsDuplicatesOnly(t *testing.T) {
+	db := setupInvitationControllerTestDB(t)
+	_, err := model.CreateInvitationCodes(1, 1, 0)
+	require.NoError(t, err)
+	var existing model.InvitationCode
+	require.NoError(t, db.First(&existing).Error)
+	recorder := invitationControllerRequest(t, http.MethodPost, "/api/invitation", `{"max_uses":1,"codes":["`+existing.Code+`"]}`, CreateInvitations)
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	assert.Contains(t, recorder.Body.String(), `"imported_count":0`)
+	assert.Contains(t, recorder.Body.String(), `"deduplicated_count":1`)
 }

@@ -76,13 +76,13 @@ func CreateInvitations(c *gin.Context) {
 		return
 	}
 	if len(req.Codes) > 0 {
-		codes, skipped, err := model.ImportInvitationCodes(req.MaxUses, req.ExpiredTime, req.Codes)
+		codes, deduplicated, skipped, err := model.ImportInvitationCodes(req.MaxUses, req.ExpiredTime, req.Codes)
 		if err != nil {
 			common.ApiError(c, err)
 			return
 		}
-		recordManageAudit(c, "invitation.create", map[string]interface{}{"imported_count": len(codes), "skipped_count": len(skipped)})
-		common.ApiSuccess(c, gin.H{"codes": codes, "imported_count": len(codes), "skipped_count": len(skipped), "skipped": skipped})
+		recordManageAudit(c, "invitation.create", map[string]interface{}{"imported_count": len(codes), "deduplicated_count": deduplicated, "skipped_count": len(skipped)})
+		common.ApiSuccess(c, gin.H{"codes": codes, "imported_count": len(codes), "deduplicated_count": deduplicated, "skipped_count": len(skipped), "skipped": skipped})
 		return
 	}
 	if req.Count <= 0 || req.Count > invitationCodeCountMax {

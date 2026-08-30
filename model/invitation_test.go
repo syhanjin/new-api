@@ -99,23 +99,41 @@ func TestSearchInvitationCodesReportsFilteredTotal(t *testing.T) {
 	assert.EqualValues(t, 3, total)
 }
 
-func TestImportInvitationCodesSkipsInvalidAndDuplicateCodes(t *testing.T) {
+func TestImportInvitationCodesCountsDuplicatesAndPreservesExisting(t *testing.T) {
 	db := setupInvitationTestDB(t)
 	existing, err := CreateInvitationCodes(1, 1, 0)
 	require.NoError(t, err)
-	codes, skipped, err := ImportInvitationCodes(3, 0, []string{" Alpha ", "", "Alpha", existing[0], strings.Repeat("x", 33)})
+	var before InvitationCode
+	require.NoError(t, db.Where("code = ?", existing[0]).First(&before).Error)
+	codes, deduplicated, skipped, err := ImportInvitationCodes(3, 0, []string{" Alpha ", "", "Alpha", existing[0], strings.Repeat("x", 33), "Beta"})
 	require.NoError(t, err)
-	assert.Equal(t, []string{"Alpha"}, codes)
-	assert.Len(t, skipped, 4)
-	var stored InvitationCode
-	require.NoError(t, db.Where("code = ?", "Alpha").First(&stored).Error)
-	assert.Equal(t, 3, stored.MaxUses)
+	assert.Equal(t, []string{"Alpha", "Beta"}, codes)
+	assert.Equal(t, 2, deduplicated)
+	assert.Len(t, skipped, 2)
+	var after InvitationCode
+	require.NoError(t, db.Where("code = ?", existing[0]).First(&after).Error)
+	assert.Equal(t, before, after)
+}
+
+func TestImportInvitationCodesDuplicatesOnlySucceeds(t *testing.T) {
+	db := setupInvitationTestDB(t)
+	existing, err := CreateInvitationCodes(1, 1, 0)
+	require.NoError(t, err)
+	codes, deduplicated, skipped, err := ImportInvitationCodes(3, 0, []string{existing[0], " " + existing[0] + " "})
+	require.NoError(t, err)
+	assert.Empty(t, codes)
+	assert.Equal(t, 2, deduplicated)
+	assert.Empty(t, skipped)
+	var count int64
+	require.NoError(t, db.Model(&InvitationCode{}).Count(&count).Error)
+	assert.EqualValues(t, 1, count)
 }
 
 func TestImportInvitationCodesRejectsEmptyInput(t *testing.T) {
 	db := setupInvitationTestDB(t)
-	_, skipped, err := ImportInvitationCodes(1, 0, []string{"", strings.Repeat("x", 33)})
+	_, deduplicated, skipped, err := ImportInvitationCodes(1, 0, []string{"", strings.Repeat("x", 33)})
 	assert.ErrorIs(t, err, ErrInvitationImportEmpty)
+	assert.Zero(t, deduplicated)
 	assert.Len(t, skipped, 2)
 	var count int64
 	require.NoError(t, db.Model(&InvitationCode{}).Count(&count).Error)

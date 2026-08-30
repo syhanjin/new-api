@@ -9,6 +9,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // Invitation status values intentionally mirror the redemption status shape,
@@ -110,13 +111,14 @@ func CreateInvitationCodes(count, maxUses int, expiredTime int64) ([]string, err
 	return codes, err
 }
 
-func ImportInvitationCodes(maxUses int, expiredTime int64, codes []string) ([]string, []InvitationImportSkipped, error) {
+func ImportInvitationCodes(maxUses int, expiredTime int64, codes []string) ([]string, int, []InvitationImportSkipped, error) {
 	if maxUses <= 0 || (expiredTime != 0 && expiredTime < common.GetTimestamp()) {
-		return nil, nil, errors.New("invalid invitation parameters")
+		return nil, 0, nil, errors.New("invalid invitation parameters")
 	}
 	valid := make([]string, 0, len(codes))
 	skipped := make([]InvitationImportSkipped, 0)
 	seen := make(map[string]struct{}, len(codes))
+	deduplicated := 0
 	for line, raw := range codes {
 		code := strings.TrimSpace(raw)
 		if line >= 100 {
@@ -134,44 +136,40 @@ func ImportInvitationCodes(maxUses int, expiredTime int64, codes []string) ([]st
 			continue
 		}
 		if _, ok := seen[code]; ok {
-			skipped = append(skipped, InvitationImportSkipped{Line: line + 1, Code: code, Reason: "duplicate code in import"})
+			deduplicated++
 			continue
 		}
 		seen[code] = struct{}{}
 		valid = append(valid, code)
 	}
 	if len(valid) == 0 {
-		return nil, skipped, ErrInvitationImportEmpty
+		if deduplicated > 0 {
+			return nil, deduplicated, skipped, nil
+		}
+		return nil, 0, skipped, ErrInvitationImportEmpty
 	}
 	createdCodes := make([]string, 0, len(valid))
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		now := common.GetTimestamp()
 		for _, code := range valid {
 			created := InvitationCode{Code: code, Status: InvitationStatusEnabled, CreatedTime: now, ExpiredTime: expiredTime, MaxUses: maxUses}
-			if err := tx.Create(&created).Error; err != nil {
-				if isUniqueConstraintError(err) {
-					for line, raw := range codes {
-						if line < 100 && strings.TrimSpace(raw) == code {
-							skipped = append(skipped, InvitationImportSkipped{Line: line + 1, Code: code, Reason: "code already exists"})
-							break
-						}
-					}
-					continue
-				}
-				return err
+			result := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&created)
+			if result.Error != nil {
+				return result.Error
+			}
+			if result.RowsAffected == 0 {
+				deduplicated++
+				continue
 			}
 			createdCodes = append(createdCodes, code)
-		}
-		if len(createdCodes) == 0 {
-			return ErrInvitationImportEmpty
 		}
 		return nil
 	})
 	if err != nil {
-		return nil, skipped, err
+		return nil, deduplicated, skipped, err
 	}
 	sort.SliceStable(skipped, func(i, j int) bool { return skipped[i].Line < skipped[j].Line })
-	return createdCodes, skipped, nil
+	return createdCodes, deduplicated, skipped, nil
 }
 
 func isUniqueConstraintError(err error) bool {

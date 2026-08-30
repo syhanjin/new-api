@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import useDialogState from '@/hooks/use-dialog'
 import type { InvitationCode, InvitationsDialogType } from '../types'
 
-type InvitationResult = { codes: string[]; importedCount?: number; skippedCount?: number; skipped?: { line: number; code: string; reason: string }[] }
+type InvitationResult = { codes: string[]; importedCount?: number; deduplicatedCount?: number; skippedCount?: number; skipped?: { line: number; code: string; reason: string }[] }
 type InvitationsContext = {
   open: InvitationsDialogType | null
   setOpen: (value: InvitationsDialogType | null) => void
