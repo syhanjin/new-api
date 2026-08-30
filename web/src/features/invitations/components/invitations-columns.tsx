@@ -14,7 +14,6 @@ export function useInvitationsColumns(): ColumnDef<InvitationCode>[] {
   return [
     { accessorKey: 'id', header: ({ column }) => <DataTableColumnHeader column={column} title={t('ID')} />, cell: ({ row }) => row.original.id },
     { accessorKey: 'code', header: t('Invitation Code'), cell: ({ row }) => <button type='button' className='font-mono text-left hover:underline' onClick={() => { void navigator.clipboard.writeText(row.original.code); toast.success(t('Copied to clipboard')) }}>{row.original.code}<Copy className='ml-1 inline h-3 w-3' /></button> },
-    { accessorKey: 'name', header: t('Batch'), cell: ({ row }) => row.original.name || `#${row.original.batch_id}` },
     { accessorKey: 'status', header: t('Status'), cell: ({ row }) => { const status = INVITATION_STATUSES[row.original.status] || INVITATION_STATUSES[INVITATION_STATUS.DISABLED]; return <StatusBadge variant={status.variant}>{t(status.labelKey)}</StatusBadge> } },
     { accessorKey: 'used_count', header: t('Usage'), cell: ({ row }) => `${row.original.used_count} / ${row.original.max_uses}` },
     { accessorKey: 'expired_time', header: t('Expires'), cell: ({ row }) => row.original.expired_time ? formatTimestampToDate(row.original.expired_time) : t('Never') },

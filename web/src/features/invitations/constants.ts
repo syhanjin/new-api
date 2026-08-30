@@ -10,7 +10,7 @@ export const INVITATION_STATUSES: Record<number, Pick<StatusBadgeProps, 'variant
 export function getInvitationStatusOptions(t: TFunction) {
   return [...Object.values(INVITATION_STATUSES).map((s) => ({ label: t(s.labelKey), value: String(s.value) })), { label: t('Expired'), value: INVITATION_FILTER_EXPIRED }]
 }
-export const INVITATION_VALIDATION = { NAME_MIN: 1, NAME_MAX: 80, COUNT_MIN: 1, COUNT_MAX: 100, USES_MIN: 1 } as const
+export const INVITATION_VALIDATION = { COUNT_MIN: 1, COUNT_MAX: 100, USES_MIN: 1 } as const
 export const INVITATION_MESSAGES = {
   LOAD_FAILED: 'Failed to load invitation codes', SEARCH_FAILED: 'Failed to search invitation codes', CREATE_FAILED: 'Failed to create invitation codes', UPDATE_FAILED: 'Failed to update invitation code', DELETE_FAILED: 'Failed to delete invitation code', STATUS_FAILED: 'Failed to update invitation code status', CREATED: 'Invitation codes created successfully', UPDATED: 'Invitation code updated successfully', DELETED: 'Invitation code deleted successfully', ENABLED: 'Invitation code enabled successfully', DISABLED: 'Invitation code disabled successfully',
 } as const

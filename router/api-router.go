@@ -289,17 +289,12 @@ func SetApiRouter(router *gin.Engine) {
 		invitationRoute := apiRouter.Group("/invitation")
 		invitationRoute.Use(middleware.AdminAuth())
 		{
-			invitationRoute.GET("/batch", middleware.RequirePermission(authz.InvitationRead), controller.GetAllInvitationBatches)
-			invitationRoute.GET("/batch/search", middleware.RequirePermission(authz.InvitationRead), controller.GetAllInvitationBatches)
-			invitationRoute.GET("/batch/:id", middleware.RequirePermission(authz.InvitationRead), controller.GetInvitationBatch)
-			invitationRoute.PUT("/batch", middleware.RequirePermission(authz.InvitationUpdate), controller.UpdateInvitationBatch)
 			invitationRoute.GET("/", middleware.RequirePermission(authz.InvitationRead), controller.GetAllInvitations)
 			invitationRoute.GET("/search", middleware.RequirePermission(authz.InvitationRead), controller.SearchInvitations)
 			invitationRoute.GET("/:id", middleware.RequirePermission(authz.InvitationRead), controller.GetInvitation)
 			invitationRoute.POST("/", middleware.RequirePermission(authz.InvitationCreate), controller.CreateInvitations)
 			invitationRoute.PUT("/", middleware.RequirePermission(authz.InvitationUpdate), controller.UpdateInvitation)
 			invitationRoute.DELETE("/invalid", middleware.RequirePermission(authz.InvitationDelete), controller.DeleteInvalidInvitations)
-			invitationRoute.DELETE("/batch/:id", middleware.RequirePermission(authz.InvitationDelete), controller.DeleteInvitationBatch)
 			invitationRoute.DELETE("/:id", middleware.RequirePermission(authz.InvitationDelete), controller.DeleteInvitation)
 		}
 		logRoute := apiRouter.Group("/log")

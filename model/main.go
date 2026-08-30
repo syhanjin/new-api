@@ -299,14 +299,64 @@ func is64BitIntegerType(dbType common.DatabaseType, dataType string) bool {
 	}
 }
 
+// migrateInvitationCodesToStandalone removes legacy batch metadata while retaining code rows.
+func migrateInvitationCodesToStandalone() error {
+	if DB == nil {
+		return nil
+	}
+	invitationTable, batchTable := "invitation_codes", "invitation_batches"
+	hasCodes, hasBatches := DB.Migrator().HasTable(invitationTable), DB.Migrator().HasTable(batchTable)
+	if !hasCodes && !hasBatches {
+		return nil
+	}
+	if hasCodes && DB.Migrator().HasColumn(invitationTable, "batch_id") {
+		if common.UsingMainDatabase(common.DatabaseTypeSQLite) {
+			err := DB.Transaction(func(tx *gorm.DB) error {
+				if err := tx.Exec("CREATE TABLE invitation_codes_new (id integer primary key autoincrement, code char(32) NOT NULL, status integer DEFAULT 1, created_time bigint, expired_time bigint, max_uses integer, used_count integer, last_used_time bigint, deleted_at datetime)").Error; err != nil {
+					return err
+				}
+				if err := tx.Exec("INSERT INTO invitation_codes_new (id,code,status,created_time,expired_time,max_uses,used_count,last_used_time,deleted_at) SELECT id,code,status,created_time,expired_time,max_uses,used_count,last_used_time,deleted_at FROM invitation_codes").Error; err != nil {
+					return err
+				}
+				if err := tx.Exec("DROP TABLE invitation_codes").Error; err != nil {
+					return err
+				}
+				if err := tx.Exec("ALTER TABLE invitation_codes_new RENAME TO invitation_codes").Error; err != nil {
+					return err
+				}
+				if err := tx.Exec("CREATE UNIQUE INDEX idx_invitation_codes_code ON invitation_codes(code)").Error; err != nil {
+					return err
+				}
+				if err := tx.Exec("CREATE INDEX idx_invitation_codes_status ON invitation_codes(status)").Error; err != nil {
+					return err
+				}
+				if err := tx.Exec("CREATE INDEX idx_invitation_codes_expired_time ON invitation_codes(expired_time)").Error; err != nil {
+					return err
+				}
+				return tx.Exec("CREATE INDEX idx_invitation_codes_deleted_at ON invitation_codes(deleted_at)").Error
+			})
+			if err != nil {
+				return fmt.Errorf("migrate invitation codes: rebuild SQLite table: %w", err)
+			}
+		} else if err := DB.Migrator().DropColumn(invitationTable, "batch_id"); err != nil {
+			return fmt.Errorf("migrate invitation codes: drop legacy batch column: %w", err)
+		}
+	}
+	if hasBatches {
+		if err := DB.Migrator().DropTable(batchTable); err != nil {
+			return fmt.Errorf("migrate invitation codes: drop legacy batch table: %w", err)
+		}
+	}
+	return nil
+}
+
 func migrateDB() error {
-	// Migrate price_amount column from float/double to decimal for existing tables
-	migrateSubscriptionPlanPriceAmount()
-	// Migrate model_limits column from varchar to text for existing tables
-	if err := migrateTokenModelLimitsToText(); err != nil {
+	// Remove the legacy invitation batch schema before standalone code migration.
+	if err := migrateInvitationCodesToStandalone(); err != nil {
 		return err
 	}
-
+	migrateSubscriptionPlanPriceAmount()
+	// Migrate model_limits column from varchar to text for existing tables
 	err := DB.AutoMigrate(
 		&Channel{},
 		&Token{},
@@ -317,7 +367,6 @@ func migrateDB() error {
 		&PasskeyCredential{},
 		&Option{},
 		&Redemption{},
-		&InvitationBatch{},
 		&InvitationCode{},
 		&InvitationUse{},
 		&Ability{},
@@ -368,6 +417,9 @@ func migrateDB() error {
 }
 
 func migrateDBFast() error {
+	if err := migrateInvitationCodesToStandalone(); err != nil {
+		return err
+	}
 
 	var wg sync.WaitGroup
 
@@ -384,7 +436,6 @@ func migrateDBFast() error {
 		{&PasskeyCredential{}, "PasskeyCredential"},
 		{&Option{}, "Option"},
 		{&Redemption{}, "Redemption"},
-		{&InvitationBatch{}, "InvitationBatch"},
 		{&InvitationCode{}, "InvitationCode"},
 		{&InvitationUse{}, "InvitationUse"},
 		{&Ability{}, "Ability"},

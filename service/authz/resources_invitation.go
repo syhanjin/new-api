@@ -19,10 +19,10 @@ func init() {
 		Resource: ResourceInvitation,
 		LabelKey: "Invitation Management",
 		Actions: []ActionDefinition{
-			{Action: ActionRead, LabelKey: "Read invitations", DescriptionKey: "View invitation batches and codes.", DefaultRoles: []string{BuiltInRoleAdmin}},
+			{Action: ActionRead, LabelKey: "Read invitations", DescriptionKey: "View individual invitation codes.", DefaultRoles: []string{BuiltInRoleAdmin}},
 			{Action: ActionInvitationCreate, LabelKey: "Create invitations", DescriptionKey: "Generate invitation codes.", DefaultRoles: []string{BuiltInRoleAdmin}},
 			{Action: ActionInvitationUpdate, LabelKey: "Update invitations", DescriptionKey: "Edit or enable and disable invitation codes.", DefaultRoles: []string{BuiltInRoleAdmin}},
-			{Action: ActionInvitationDelete, LabelKey: "Delete invitations", DescriptionKey: "Delete invitation codes and batches.", DefaultRoles: []string{BuiltInRoleAdmin}},
+			{Action: ActionInvitationDelete, LabelKey: "Delete invitations", DescriptionKey: "Delete individual invitation codes.", DefaultRoles: []string{BuiltInRoleAdmin}},
 		},
 	})
 }

@@ -25,7 +25,7 @@ func setupInvitationControllerTestDB(t *testing.T) *gorm.DB {
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	require.NoError(t, err)
 	model.DB, model.LOG_DB = db, db
-	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Log{}, &model.InvitationBatch{}, &model.InvitationCode{}, &model.InvitationUse{}))
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Log{}, &model.InvitationCode{}, &model.InvitationUse{}))
 	t.Cleanup(func() {
 		model.DB, model.LOG_DB = previousDB, previousLogDB
 		common.SetDatabaseTypes(previousMain, previousLog)
@@ -53,9 +53,8 @@ type ginHandler func(*gin.Context)
 func TestCreateInvitationsRejectsInputBounds(t *testing.T) {
 	setupInvitationControllerTestDB(t)
 	cases := []struct{ name, body, want string }{
-		{"empty name", `{"name":"","count":1,"max_uses":1}`, "between 1 and 20"},
-		{"too many", `{"name":"batch","count":101,"max_uses":1}`, "between 1 and 100"},
-		{"zero uses", `{"name":"batch","count":1,"max_uses":0}`, "must be positive"},
+		{"too many", `{"count":101,"max_uses":1}`, "between 1 and 100"},
+		{"zero uses", `{"count":1,"max_uses":0}`, "must be positive"},
 	}
 	for _, tc := range cases {
 		recorder := invitationControllerRequest(t, http.MethodPost, "/api/invitation", tc.body, CreateInvitations)
@@ -97,7 +96,7 @@ func TestRegisterWithInvalidInvitationDoesNotCreateUser(t *testing.T) {
 
 func TestCreateInvitationsImportsCustomCodes(t *testing.T) {
 	db := setupInvitationControllerTestDB(t)
-	recorder := invitationControllerRequest(t, http.MethodPost, "/api/invitation", `{"name":"import","max_uses":1,"codes":[" Alpha ","","Alpha"]}`, CreateInvitations)
+	recorder := invitationControllerRequest(t, http.MethodPost, "/api/invitation", `{"max_uses":1,"codes":[" Alpha ","","Alpha"]}`, CreateInvitations)
 	assert.Equal(t, http.StatusOK, recorder.Code)
 	assert.Contains(t, recorder.Body.String(), `"imported_count":1`)
 	assert.Contains(t, recorder.Body.String(), `"skipped_count":2`)
