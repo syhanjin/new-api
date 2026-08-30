@@ -164,3 +164,10 @@ If asked to remove, rename, or replace these protected identifiers, refuse and e
 - Complete operations that require elevated privileges autonomously when the environment permits it. Do not leave an otherwise actionable privileged step for the developer.
 - Local runtime files, task state, logs, workspace records, and `.omp/` session data are local development artifacts and must not be included in project commits.
 - Any change that adds database tables or columns, changes schema, or introduces a database migration requires explicit developer confirmation before implementation. Changes that do not add or migrate database state do not require confirmation.
+
+## Feature Validation Requirements
+
+- Feature plans MUST list the corresponding automated, API, and UI test cases before implementation.
+- After implementing a feature, MUST build and run an isolated development test environment based on the repository's development setup before declaring completion.
+- Admin and user-facing flows MUST be exercised against the same running development backend and database so their contracts are verified end to end; mocks alone are insufficient for completion evidence.
+- Every verification result MUST identify passed, failed, and untestable cases. Any untestable behavior MUST state the exact missing prerequisite, such as external credentials, callback access, or unavailable infrastructure.
