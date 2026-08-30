@@ -27,6 +27,9 @@ export interface InvitationBatch {
 }
 export interface ApiResponse<T = unknown> { success: boolean; message?: string; data?: T }
 export interface InvitationListResponse extends ApiResponse<{ items: InvitationCode[]; total: number; page: number; page_size: number }> {}
-export interface InvitationSearchParams { keyword?: string; status?: string; p?: number; page_size?: number }
+export interface InvitationBatchListResponse extends ApiResponse<{ items: InvitationBatch[]; total: number; page: number; page_size: number }> {}
+export interface InvitationBatchResponse extends ApiResponse<{ batch: InvitationBatch; codes: InvitationCode[] }> {}
+export interface InvitationSearchParams { keyword?: string; status?: string; batch_id?: number; p?: number; page_size?: number }
 export interface InvitationFormData { id?: number; name: string; count?: number; max_uses: number; expired_time: number; status?: number }
-export type InvitationsDialogType = 'create' | 'update' | 'delete'
+export type InvitationsDialogType = 'create' | 'update' | 'delete' | 'batch-update' | 'batch-delete' | 'create-result'
+export type InvitationView = 'batches' | 'codes'

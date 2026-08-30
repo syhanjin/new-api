@@ -116,6 +116,9 @@ func SearchInvitationCodes(batchID int, keyword, status string, startIdx, num in
 	if status != "" {
 		query = query.Where("status = ?", status)
 	}
+	if err = query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
 	if err = query.Order("id desc").Limit(num).Offset(startIdx).Find(&codes).Error; err != nil {
 		return nil, 0, err
 	}

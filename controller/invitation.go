@@ -22,6 +22,74 @@ type invitationBatchRequest struct {
 	Status      int    `json:"status"`
 }
 
+func GetAllInvitationBatches(c *gin.Context) {
+	pageInfo := common.GetPageQuery(c)
+	batches, total, err := model.SearchInvitationBatches(c.Query("keyword"), c.Query("status"), pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	pageInfo.SetTotal(int(total))
+	pageInfo.SetItems(batches)
+	common.ApiSuccess(c, pageInfo)
+}
+
+func GetInvitationBatch(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	batch, err := model.GetInvitationBatchById(id)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	codes, _, err := model.SearchInvitationCodes(id, "", "", 0, -1)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, gin.H{"batch": batch, "codes": codes})
+}
+
+func UpdateInvitationBatch(c *gin.Context) {
+	var req invitationBatchRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	req.Name = strings.TrimSpace(req.Name)
+	if req.ID <= 0 {
+		common.ApiError(c, errors.New("invitation id must be positive"))
+		return
+	}
+	if utf8.RuneCountInString(req.Name) == 0 || utf8.RuneCountInString(req.Name) > 20 {
+		common.ApiError(c, errors.New("invitation batch name must be between 1 and 20 characters"))
+		return
+	}
+	if req.ExpiredTime != 0 && req.ExpiredTime < common.GetTimestamp() {
+		common.ApiError(c, errors.New("invitation expiration time is invalid"))
+		return
+	}
+	if req.Status != model.InvitationStatusEnabled && req.Status != model.InvitationStatusDisabled {
+		common.ApiError(c, errors.New("invalid invitation status"))
+		return
+	}
+	batch, err := model.GetInvitationBatchById(req.ID)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	batch.Name, batch.ExpiredTime, batch.Status = req.Name, req.ExpiredTime, req.Status
+	if err = batch.Update(); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	recordManageAudit(c, "invitation.batch_update", map[string]interface{}{"batch_id": batch.Id})
+	common.ApiSuccess(c, batch)
+}
+
 func GetAllInvitations(c *gin.Context) {
 	pageInfo := common.GetPageQuery(c)
 	codes, total, err := model.SearchInvitationCodes(0, "", "", pageInfo.GetStartIdx(), pageInfo.GetPageSize())

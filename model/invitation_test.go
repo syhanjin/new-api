@@ -108,3 +108,24 @@ func TestCreateInvitationBatchRejectsInvalidParameters(t *testing.T) {
 		assert.Error(t, err, tc.name)
 	}
 }
+
+func TestSearchInvitationCodesReportsFilteredTotal(t *testing.T) {
+	setupInvitationTestDB(t)
+	_, _, err := CreateInvitationBatch("total", 1, 3, 1, 0)
+	require.NoError(t, err)
+	codes, total, err := SearchInvitationCodes(0, "", "", 0, 1)
+	require.NoError(t, err)
+	assert.Len(t, codes, 1)
+	assert.EqualValues(t, 3, total)
+}
+
+func TestDeleteInvitationBatchCascadesCodes(t *testing.T) {
+	db := setupInvitationTestDB(t)
+	batch, _, err := CreateInvitationBatch("cascade", 1, 2, 1, 0)
+	require.NoError(t, err)
+	require.NoError(t, DeleteInvitationBatchById(batch.Id))
+	var count int64
+	require.NoError(t, db.Model(&InvitationCode{}).Where("batch_id = ?", batch.Id).Count(&count).Error)
+	assert.Zero(t, count)
+	assert.ErrorIs(t, db.First(&InvitationBatch{}, batch.Id).Error, gorm.ErrRecordNotFound)
+}
