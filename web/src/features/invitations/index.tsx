@@ -8,5 +8,6 @@ export function Invitations() {
   const { t } = useTranslation()
   return <InvitationsProvider><SectionPageLayout fixedContent><SectionPageLayout.Title>{t('Invitation Codes')}</SectionPageLayout.Title><SectionPageLayout.Actions><InvitationsPrimaryButtons /></SectionPageLayout.Actions><SectionPageLayout.Content><InvitationsTable /></SectionPageLayout.Content></SectionPageLayout><InvitationsDialogs /></InvitationsProvider>
 }
+// eslint-disable-next-line react-refresh/only-export-components
 export { InvitationsProvider, useInvitations } from './components/invitations-provider'
 export type * from './types'

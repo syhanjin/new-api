@@ -29,6 +29,7 @@ export function InvitationsProvider({ children }: { children: React.ReactNode })
   const showBatches = () => { setCurrentBatch(null); setView('batches') }
   return <Context value={{ open, setOpen, currentRow, setCurrentRow, currentBatch, setCurrentBatch, view, openBatch, showBatches, result, setResult, refreshTrigger, triggerRefresh: () => setRefreshTrigger((v) => v + 1) }}>{children}</Context>
 }
+// eslint-disable-next-line react-refresh/only-export-components
 export function useInvitations() {
   const context = React.useContext(Context)
   if (!context) throw new Error('useInvitations has to be used within <InvitationsProvider>')
