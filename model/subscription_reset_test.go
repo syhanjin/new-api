@@ -199,3 +199,26 @@ func TestAdminResetPlanSubscriptionsNoMatchSucceeds(t *testing.T) {
 	assert.Zero(t, result.UserCount)
 	assert.Empty(t, result.AffectedUserIds)
 }
+
+func TestCalcNextResetTimeUsesRollingPeriods(t *testing.T) {
+	base := time.Date(2026, 8, 26, 15, 30, 0, 0, time.FixedZone("test", 8*60*60))
+	end := base.Add(60 * 24 * time.Hour).Unix()
+	cases := []struct {
+		period string
+		want   time.Time
+	}{
+		{SubscriptionResetDaily, base.Add(24 * time.Hour)},
+		{SubscriptionResetWeekly, base.Add(7 * 24 * time.Hour)},
+		{SubscriptionResetMonthly, base.Add(30 * 24 * time.Hour)},
+	}
+	for _, tc := range cases {
+		plan := &SubscriptionPlan{QuotaResetPeriod: tc.period}
+		assert.Equal(t, tc.want.Unix(), calcNextResetTime(base, plan, end))
+	}
+}
+
+func TestCalcNextResetTimeStopsAtSubscriptionEnd(t *testing.T) {
+	base := time.Date(2026, 8, 26, 15, 30, 0, 0, time.UTC)
+	plan := &SubscriptionPlan{QuotaResetPeriod: SubscriptionResetWeekly}
+	assert.Zero(t, calcNextResetTime(base, plan, base.Add(24*time.Hour).Unix()))
+}
